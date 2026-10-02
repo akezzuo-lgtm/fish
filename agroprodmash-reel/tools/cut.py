@@ -65,6 +65,9 @@ EDL = [
     ("0972", 2.5, 6, 0.6),  # end card background, slowed down
 ]
 
+# iPhone footage is tagged HLG/BT.2020; the grade was tuned on it viewed as SDR, so retag as BT.709
+# (otherwise HyperFrames switches to an HDR render path).
+SDR = "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709"
 GRADE = "eq=contrast=1.08:saturation=1.22:brightness=0.01:gamma=0.98,unsharp=5:5:0.5,vignette=PI/6"
 
 os.makedirs("build/seg", exist_ok=True)
@@ -80,7 +83,7 @@ for i, (clip, start, beats, speed) in enumerate(EDL):
     frame = end_frame
     out = f"build/seg/{i:02d}.mp4"
     parts.append(out)
-    vf = f"setpts=(PTS-STARTPTS)/{speed},fps={FPS},scale=1080:1920,{GRADE}"
+    vf = f"setpts=(PTS-STARTPTS)/{speed},fps={FPS},scale=1080:1920,{GRADE},{SDR}"
     subprocess.run(
         ["ffmpeg", "-loglevel", "error", "-y", "-ss", str(start), "-i", f"{SRC}/IMG_{clip}.mp4",
          "-an", "-vf", vf, "-frames:v", str(n), "-c:v", "libx264", "-preset", "fast", "-crf", "14",
@@ -99,6 +102,7 @@ os.replace("build/list.txt", "build/seg/list.txt")
 subprocess.run(
     ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", "build/seg/list.txt",
      "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p", "-r", str(FPS),
+     "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
      "-movflags", "+faststart", "assets/base.mp4"],
     check=True,
 )

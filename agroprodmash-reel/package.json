@@ -7,6 +7,6 @@
     "cut": "python3 tools/cut.py",
     "dev": "npx --yes hyperframes@0.8.111 preview",
     "check": "npx --yes hyperframes@0.8.111 check",
-    "render": "npx --yes hyperframes@0.8.111 render -o renders/agroprodmash-reel.mp4"
+    "render": "npx --yes hyperframes@0.8.111 render --sdr -o renders/agroprodmash-reel.mp4"
   }
 }
