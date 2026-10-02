@@ -40,7 +40,8 @@ if (-not (Test-Path (Join-Path $Repo ".git"))) {
   if ($LASTEXITCODE) { Fail "git clone не удался" }
 }
 git -C $Repo checkout $Branch
-git -C $Repo pull origin $Branch
+# --no-rebase --no-edit: merge silently if the branch moved on GitHub meanwhile (no editor, no "divergent" error)
+git -C $Repo pull --no-rebase --no-edit origin $Branch
 if ($LASTEXITCODE) { Fail "git pull не удался" }
 
 $Dest = Join-Path $Repo "footage\agroprodmash"
@@ -49,9 +50,13 @@ New-Item -ItemType Directory -Force $Dest | Out-Null
 function Push-Batch($n) {
   git -C $Repo add footage
   git -C $Repo diff --cached --quiet
-  if ($LASTEXITCODE -eq 0) { return }
-  git -C $Repo commit -m "Add Agroprodmash footage (batch $n)"
+  if ($LASTEXITCODE -ne 0) { git -C $Repo commit -m "Add Agroprodmash footage (batch $n)" }
+  # nothing new and nothing left unpushed -> done
+  git -C $Repo fetch origin $Branch
+  $ahead = git -C $Repo rev-list --count "origin/$Branch..HEAD"
+  if ($ahead -eq "0") { return }
   for ($try = 1; $try -le 4; $try++) {
+    git -C $Repo pull --no-rebase --no-edit origin $Branch
     git -C $Repo push origin $Branch
     if ($LASTEXITCODE -eq 0) { return }
     Start-Sleep -Seconds ([math]::Pow(2, $try))
