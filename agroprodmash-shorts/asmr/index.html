@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/shots.js"></script>
+    <style>
+      @font-face {
+        font-family: "Unbounded";
+        src: url("assets/fonts/unbounded-cyrillic.woff2") format("woff2");
+        font-weight: 200 900;
+        font-display: block;
+        unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+      }
+      @font-face {
+        font-family: "Unbounded";
+        src: url("assets/fonts/unbounded-latin.woff2") format("woff2");
+        font-weight: 200 900;
+        font-display: block;
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        font-family: Inter, sans-serif;
+        color: #fff;
+      }
+      #drift {
+        position: absolute;
+        inset: 0;
+      }
+      #base {
+        position: absolute;
+        inset: 0;
+        width: 1080px;
+        height: 1920px;
+        object-fit: cover;
+      }
+      #shade {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 65%, rgba(0, 0, 0, 0.45) 100%);
+      }
+      #title {
+        position: absolute;
+        left: 60px;
+        right: 60px;
+        top: 300px;
+        text-align: center;
+        font-family: Unbounded, sans-serif;
+        font-weight: 900;
+        font-size: 76px;
+        line-height: 1.2;
+        letter-spacing: -1px;
+        text-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+        opacity: 0;
+      }
+      #title mark {
+        background: #ffe600;
+        color: #0b0b0b;
+        padding: 0 14px;
+        border-radius: 14px;
+        text-shadow: none;
+      }
+      .label {
+        position: absolute;
+        left: 60px;
+        top: 1420px;
+        padding: 16px 28px;
+        border-radius: 40px;
+        background: rgba(0, 0, 0, 0.55);
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        font-size: 42px;
+        font-weight: 700;
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="21.5" data-width="1080" data-height="1920">
+      <div id="drift">
+        <video id="base" class="clip" src="assets/base.mp4" data-start="0" data-duration="21.5" data-track-index="0" muted playsinline></video>
+      </div>
+      <audio id="music" src="assets/music.wav" data-start="0" data-duration="21.5" data-track-index="1"></audio>
+      <div id="shade"></div>
+      <div id="title">Самое<br /><mark>залипательное</mark><br />на Агропродмаше 🤤</div>
+      <div id="labels"></div>
+    </div>
+    <script>
+      const LABELS = ["дозатор теста", "кобот и конфеты", "упаковка в пачки", "мойка овощей", "линия полуфабрикатов", "робот-укладчик", "роботы Robocom", "дозатор теста"];
+      const tl = gsap.timeline({ paused: true });
+      const ft = (t, a, b, at) => tl.fromTo(t, a, { ...b, immediateRender: false }, at);
+      // Slow push-in on every shot; the last shot flows back into the first, so the loop is seamless.
+      window.SHOTS.forEach((s, i) => {
+        ft("#drift", { scale: 1 }, { scale: 1.08, duration: s.len, ease: "none" }, s.start);
+        const el = document.createElement("div");
+        el.className = "label";
+        el.textContent = LABELS[i];
+        document.getElementById("labels").appendChild(el);
+        if (i === 0 || i === window.SHOTS.length - 1) return; // keep the loop point clean
+        ft(el, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, s.start + 0.2);
+        tl.to(el, { opacity: 0, duration: 0.2 }, s.start + s.len - 0.25);
+      });
+      ft("#title", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 0.1);
+      tl.to("#title", { opacity: 0, y: -40, duration: 0.3, ease: "power2.in" }, 2.2);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
