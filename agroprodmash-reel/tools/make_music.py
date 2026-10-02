@@ -1,4 +1,6 @@
 """Synthesizes a 128 BPM electronic track whose sections line up with the edit."""
+import json
+
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import butter, sosfilt
@@ -6,9 +8,12 @@ from scipy.signal import butter, sosfilt
 SR = 44100
 BPM = 128
 BEAT = 60 / BPM
-BARS = 30
-TAIL = 2.0
-N = int((BARS * 4 * BEAT + TAIL) * SR)
+TL = json.load(open("assets/timeline.json"))
+SEC = {x["name"]: x for x in TL["sections"]}
+TOTAL_BEATS = TL["beats"]
+BARS = -(-TOTAL_BEATS // 4)
+TAIL = 0.0
+N = int(TOTAL_BEATS * BEAT * SR)
 rng = np.random.default_rng(7)
 
 L = np.zeros(N)
@@ -134,30 +139,35 @@ def bass(root, length=0.5):
     return np.tanh(lp(x, 600) * 1.5) * env(n, 0.003, 0.15) * 0.35
 
 
-# Section plan (bars): 0-3 hook, 4-7 build, 8-19 drop, 20-23 drop B, 24-27 outro, 28-29 end card.
-def section(bar):
-    if bar < 4:
+# Music sections follow the voiceover timeline (beats): hook, build (arrival), drop, outro (people), end (CTA).
+def section_at(beat):
+    if beat < SEC["arrival"]["start"]:
         return "hook"
-    if bar < 8:
+    if beat < SEC["robots"]["start"]:
         return "build"
-    if bar < 24:
+    if beat < SEC["people"]["start"]:
         return "drop"
-    if bar < 28:
+    if beat < SEC["cta"]["start"]:
         return "outro"
     return "end"
 
 
 add(impact(), 0, 0.9)
+BUILD_HALF = (SEC["arrival"]["start"] + SEC["robots"]["start"]) // 2
 for bar in range(BARS):
-    sec = section(bar)
     root = PROG[bar % 4]
     b0 = bar * 4
+    sec = section_at(b0)
     full = sec in ("hook", "drop")
     if sec != "end":
         add(pad(root, 4), b0, 1.0 if sec != "build" else 0.8)
     for beat in range(4):
         b = b0 + beat
-        if full or sec == "outro" or (sec == "build" and (bar >= 6 or beat in (0, 2))):
+        sec = section_at(b)
+        full = sec in ("hook", "drop")
+        if b >= TOTAL_BEATS:
+            break
+        if full or sec == "outro" or (sec == "build" and (b >= BUILD_HALF or beat in (0, 2))):
             add(kick(), b, 0.9)
             i = t_of(b)
             j = min(N, i + int(0.25 * SR))
@@ -172,6 +182,8 @@ for bar in range(BARS):
         if full or sec == "outro":
             add(bass(root), b + 0.5)
             add(bass(root, 0.25), b + 0.75, 0.6)
+    sec = section_at(b0)
+    full = sec in ("hook", "drop")
     if full and sec == "drop":
         for s in (0, 0.75, 1.5, 2.5, 3.0):
             add(stab(root), b0 + s, 1.0, 0.2 if s % 1 else -0.2)
@@ -180,21 +192,24 @@ for bar in range(BARS):
             add(stab(root), b0 + s, 0.8)
 
 # Build-up into the drop: riser plus snare roll.
-add(riser(8), 24, 0.7)
+DROP = SEC["robots"]["start"]
+add(riser(8), DROP - 8, 0.7)
 for k in range(16):
-    add(clap(), 28 + k * 0.25, 0.25 + 0.5 * k / 16)
+    add(clap(), DROP - 4 + k * 0.25, 0.25 + 0.5 * k / 16)
 # Transitions between chapters.
-for beat in (32, 56, 80, 96):
+for name in ("robots", "food", "pack", "people"):
+    beat = SEC[name]["start"]
     add(impact(), beat, 0.55)
     add(whoosh(), beat - 0.6, 0.8)
 # End card: final hit and a held chord.
-add(impact(), 112, 0.9)
-add(pad("A", 10), 112, 1.6)
+END = SEC["cta"]["start"]
+add(impact(), END, 0.9)
+add(pad("A", TOTAL_BEATS - END), END, 1.6)
 
 mix = np.stack([L, R], 1)
 # Duck everything except drums would need stems; approximate by ducking the whole mix lightly.
 mix *= (0.55 + 0.45 * duck)[:, None]
-fade = int(TAIL * SR)
+fade = int(1.2 * SR)
 mix[-fade:] *= np.linspace(1, 0, fade)[:, None]
 mix = np.tanh(mix * 1.4)
 mix /= np.max(np.abs(mix)) * 1.05

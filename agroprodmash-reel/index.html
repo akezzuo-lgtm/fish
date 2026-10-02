@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1080, height=1920" />
     <script src="assets/gsap.min.js"></script>
+    <script src="assets/timeline.js"></script>
+    <script src="assets/shots.js"></script>
     <style>
       @font-face {
         font-family: "Unbounded";
@@ -99,7 +101,7 @@
         opacity: 0;
         font-weight: 900;
         font-size: 64px;
-        line-height: 1.12;
+        line-height: 1.25;
         text-shadow: 0 4px 0 rgba(0, 0, 0, 0.55), 0 0 30px rgba(0, 0, 0, 0.6);
         -webkit-text-stroke: 10px #000;
         paint-order: stroke fill;
@@ -114,6 +116,10 @@
         box-decoration-break: clone;
         -webkit-box-decoration-break: clone;
       }
+      .cap .wd {
+        display: inline-block;
+        margin: 0 8px;
+      }
       .cap .g {
         color: var(--green);
       }
@@ -122,8 +128,8 @@
         left: 40px;
         right: 40px;
         font-family: Unbounded, sans-serif;
-        font-size: 104px;
-        line-height: 1.05;
+        font-size: 92px;
+        line-height: 1.22;
         letter-spacing: -2px;
       }
       .cap.big {
@@ -288,7 +294,7 @@
         font-family: Unbounded, sans-serif;
         font-weight: 900;
         font-size: 92px;
-        line-height: 1.05;
+        line-height: 1.22;
         letter-spacing: -2px;
       }
       #end .q mark {
@@ -327,7 +333,7 @@
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="57.533"
+      data-duration="59.533"
       data-width="1080"
       data-height="1920"
     >
@@ -339,7 +345,7 @@
               class="clip"
               src="assets/base.mp4"
               data-start="0"
-              data-duration="57.533"
+              data-duration="59.533"
               data-track-index="0"
               muted
               playsinline
@@ -347,7 +353,7 @@
           </div>
         </div>
       </div>
-      <audio id="music" src="assets/music.wav" data-start="0" data-duration="57.533" data-track-index="1"></audio>
+      <audio id="music" src="assets/mix.wav" data-start="0" data-duration="59.46" data-track-index="1"></audio>
 
       <div id="shade" class="layer"></div>
       <div id="endDim" class="layer"></div>
@@ -374,7 +380,7 @@
       <div id="end">
         <div class="logo">АГРОПРОДМАШ <i>2026</i></div>
         <div class="q">А тебя что <mark>удивило</mark> больше всего?</div>
-        <div class="hint">роботы, тесто или мясорубки?<br />пиши в комментах 👇</div>
+        <div class="hint">роботы, шоколад или мясорубки?<br />пиши в комментариях 👇</div>
         <div class="btns">
           <div class="btn" id="b1">🔖 Сохрани</div>
           <div class="btn alt" id="b2">➕ Подпишись</div>
@@ -388,17 +394,22 @@
     <script>
       const BEAT = 60 / 128;
       const T = (b) => b * BEAT;
-      const DURATION = 57.533;
+      const DURATION = window.TIMELINE.duration;
       const tl = gsap.timeline({ paused: true });
       // Many tweens hit the same properties (#punch, #flash); deferring each start value keeps seeking exact.
       const ft = (target, from, to, at) => tl.fromTo(target, from, { ...to, immediateRender: false }, at);
 
-      // Shot boundaries in beats — must match EDL in tools/cut.py.
-      const SHOT_BEATS = [2, 2, 2, 2, 2, 2, 4, 4, 2, 2, 4, 2, 2, 3, 4, 3, 2, 2, 2, 2, 2, 2, 2, 3, 3, 2, 2, 2, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 4, 4, 6];
+      // Timeline from the voiceover (tools/voice.py) and shot lengths (tools/cut.py).
+      const TLD = window.TIMELINE;
+      const SEC = Object.fromEntries(TLD.sections.map((x) => [x.name, x]));
+      const WORDS = TLD.words;
+      const SHOT_BEATS = window.SHOT_BEATS;
       const cuts = [];
       SHOT_BEATS.reduce((b, n) => (cuts.push(b), b + n), 0);
-      const CHAPTER_BEATS = [32, 56, 80, 96];
-      const HOOK_END = 12;
+      const CHAPTER_BEATS = ["robots", "food", "pack", "people"].map((n) => SEC[n].start);
+      const wordT = (w, section) => WORDS.find((x) => x.w === w && (!section || x.section === section)).t;
+      const TITLE_BEAT = Math.round(wordT("агропродмаш") / BEAT);
+      const HOOK_END = TITLE_BEAT;
 
       // ---------- Camera: punch-in on every cut, whip on chapter changes, slow drift inside shots ----------
       cuts.forEach((b, i) => {
@@ -417,11 +428,10 @@
       });
       // Slow push-in across each shot keeps static footage alive.
       cuts.forEach((b, i) => {
-        const len = T(SHOT_BEATS[i]);
-        ft("#drift", { scale: 1 }, { scale: 1.06, duration: len, ease: "none" }, T(b));
+        ft("#drift", { scale: 1 }, { scale: 1.06, duration: T(SHOT_BEATS[i]), ease: "none" }, T(b));
       });
       // Bar-downbeat shakes through the drop.
-      for (let b = 32; b < 96; b += 4) {
+      for (let b = SEC.robots.start; b < SEC.people.start; b += 4) {
         ft("#shake", { x: 10, y: -8 }, { x: 0, y: 0, duration: 0.22, ease: "elastic.out(1, 0.4)" }, T(b));
       }
       // Hook: shake on every beat.
@@ -432,82 +442,83 @@
       // ---------- Progress bar (retention cue) ----------
       tl.fromTo("#progress", { scaleX: 0 }, { scaleX: 1, duration: DURATION, ease: "none" }, 0);
 
-      // ---------- Captions ----------
-      // [startBeat, endBeat, html, style]
-      const CAPS = [
-        [0, 2, "ЭТО<br>НЕ ЗАВОД", "hook"],
-        [2, 4, "И НЕ<br>ФИЛЬМ", "hook"],
-        [4, 6, "ЭТО<br><mark>ВЫСТАВКА</mark>", "hook"],
-        [6, 12, "где делают<br>машины для <span class='g'>еды</span> 🍞", "hook"],
-        [16, 18, "<mark>POV:</mark> поехал смотреть,", ""],
-        [18, 20, "на чём делают<br>нашу еду 🍞", ""],
-        [22, 24, "ЗАХОДИМ →", "big"],
-        [24, 28, "тут <mark>огромно</mark> 😳", ""],
-        [28, 30, "куда идти первым?", ""],
-        [30, 32, "конечно, к <mark>роботам</mark> 🤖", ""],
-        [35, 39, "робот сам<br>таскает <mark>коробки</mark> 📦", ""],
-        [39, 42, "а тут их<br>целая <mark>бригада</mark>", ""],
-        [44, 46, "конфеты? тоже<br><mark>робот</mark> 🍬", ""],
-        [46, 48, "человеку осталось<br>подать коробку 😅", ""],
-        [50, 54, "сколько тут<br><mark>роботов?!</mark> 🤯", ""],
-        [59, 62, "тесто льётся<br><mark>рекой</mark> 🤤", ""],
-        [62, 64, "кондитерка<br>на потоке 🍫", ""],
-        [64, 68, "полуфабрикаты —<br>тоже на <mark>автомате</mark>", ""],
-        [70, 73, "овощи → <mark>в душ</mark> 🚿", ""],
-        [73, 76, "моет быстрее<br>любой посудомойки", ""],
-        [76, 80, "мясорубки размером<br>с <mark>холодильник</mark> 🥩", ""],
-        [80, 82, "рулон плёнки…", ""],
-        [82, 84, "…и вот уже<br><mark>упаковка</mark> ✨", ""],
-        [86, 90, "линии длиной<br>в целый <mark>стенд</mark>", ""],
-        [92, 94, "а тут решают<br><mark>дела</mark> 🤝", ""],
-        [94, 96, "даже санпропускник —<br>автомат 🧼", ""],
-        [96, 100, "деловая программа:<br>зал <mark>битком</mark>", ""],
-        [100, 104, "лекции, стенды,<br>переговоры", ""],
-        [106, 108, "ИТОГ:", "big"],
-        [108, 110, "еду всё чаще<br>делают <mark>роботы</mark> 🤖", ""],
-        [110, 114, "и это<br>только начало", ""],
-      ];
+      // ---------- Word-synced subtitles ----------
+      const SPELL = { льется: "льётся", пленки: "плёнки", счета: "счёта", чем: "чём", все: "всё", огромное: "огромное" };
+      const EMPH = new Set(["завод", "фильм", "выставка", "еду", "глазами", "огромное", "роботам", "коробки", "бригада", "перекуров",
+        "конфеты", "робот", "роботов", "шоколад", "рекой", "автомате", "мойку", "холодильник", "пачка", "стенд", "дела", "битком", "итог", "роботы", "начало"]);
+      const EMOJI = { роботам: "🤖", коробки: "📦", перекуров: "🚬", конфеты: "🍬", роботов: "🤯", шоколад: "🍫", мойку: "🚿",
+        холодильник: "🥩", пачка: "✨", дела: "🤝", битком: "🔥", начало: "🚀", еду: "🍞" };
+      // A new subtitle chunk starts on these words so lines follow the sense of the sentence.
+      const STARTERS = new Set(["это", "и", "где", "которые", "я", "то", "заходим", "куда", "конечно", "робот", "а", "нужно",
+        "пожалуйста", "тоже", "человеку", "дальше", "шоколад", "кондитерка", "полуфабрикаты", "овощи", "упаковка", "рулон",
+        "линии", "мой", "еду"]);
+      const subWords = WORDS.filter((w) => w.section !== "cta" && w.t < wordT("агропродмаш") - 0.05 || (w.section !== "hook" && w.section !== "cta"));
+      const chunks = [];
+      subWords.forEach((w, i) => {
+        const prev = subWords[i - 1];
+        const cur = chunks[chunks.length - 1];
+        const len = cur ? cur.words.reduce((n, x) => n + x.w.length + 1, 0) : 0;
+        const brk = !cur || w.section !== prev.section || w.t - prev.t > 0.75 || cur.words.length >= 3 || len + w.w.length > 22 ||
+          (STARTERS.has(w.w) && !(w.w === "робот" && prev.w === "тоже") && !(w.w === "это" && prev.w === "и"));
+        if (brk) chunks.push({ words: [w], hook: w.section === "hook" });
+        else cur.words.push(w);
+      });
       const capLayer = document.getElementById("captions");
-      CAPS.forEach(([b0, b1, html, style], i) => {
+      chunks.forEach((c, i) => {
         const el = document.createElement("div");
-        el.className = "cap " + style;
-        el.innerHTML = html;
+        el.className = "cap" + (c.hook ? " hook" : "");
+        const spans = c.words.map((w) => {
+          const txt = SPELL[w.w] || w.w;
+          const shown = c.hook ? txt.toUpperCase() : txt;
+          const inner = EMPH.has(w.w) ? `<mark>${shown}</mark>` : shown;
+          return `<span class="wd">${inner}</span>` + (EMOJI[w.w] ? ` ${EMOJI[w.w]}` : "");
+        });
+        el.innerHTML = spans.join(" ");
         capLayer.appendChild(el);
-        const t0 = T(b0);
-        const t1 = T(b1);
-        ft(el, { opacity: 0, scale: 0.55, y: 50, rotation: i % 2 ? 3 : -3 }, { opacity: 1, scale: 1, y: 0, rotation: 0, duration: 0.24, ease: "back.out(2.6)" }, t0);
-        const mark = el.querySelector("mark");
-        if (mark) ft(mark, { scale: 1 }, { scale: 1.12, duration: 0.12, yoyo: true, repeat: 1, ease: "power2.out" }, t0 + BEAT);
-        tl.to(el, { opacity: 0, scale: 0.9, y: -20, duration: 0.1, ease: "power2.in" }, t1 - 0.1);
+        const t0 = c.words[0].t - 0.04;
+        const last = c.words[c.words.length - 1].t;
+        const next = chunks[i + 1] ? chunks[i + 1].words[0].t - 0.04 : last + 0.7;
+        let t1 = Math.min(next, last + 0.75);
+        if (c.hook) t1 = Math.min(t1, T(TITLE_BEAT));
+        ft(el, { opacity: 0, scale: 0.6, y: 40 }, { opacity: 1, scale: 1, y: 0, duration: 0.16, ease: "back.out(2.6)" }, t0);
+        tl.to(el, { opacity: 0, duration: 0.06 }, t1 - 0.06);
+        // karaoke: the word being spoken pops and turns yellow
+        el.querySelectorAll(".wd").forEach((sp, k) => {
+          const tw = c.words[k].t;
+          const tn = k + 1 < c.words.length ? c.words[k + 1].t : t1;
+          ft(sp, { color: "#ffffff", scale: 1 }, { color: "#ffe600", scale: 1.05, duration: 0.08, ease: "power2.out" }, tw);
+          tl.to(sp, { color: "#ffffff", scale: 1, duration: 0.08 }, Math.max(tw + 0.1, tn - 0.02));
+        });
       });
 
-      // ---------- Title card (banner shot, beats 12-16) ----------
+      // ---------- Title card (on the word "агропродмаш") ----------
       const rows = { r1: "АГРО", r2: "ПРОД", r3: "МАШ" };
       Object.entries(rows).forEach(([id, word]) => {
         document.getElementById(id).innerHTML = [...word].map((c) => `<span>${c}</span>`).join("");
       });
-      const tT = T(HOOK_END);
+      const tT = T(TITLE_BEAT);
       tl.set("#title", { opacity: 1 }, tT);
       tl.from("#title .row span", { y: 160, opacity: 0, rotation: 8, duration: 0.35, ease: "back.out(2)", stagger: 0.04 }, tT);
       tl.from("#title .year", { scale: 3, opacity: 0, rotation: -12, duration: 0.3, ease: "power4.out" }, tT + 0.75);
       ft("#flash", { opacity: 0.6 }, { opacity: 0, duration: 0.25 }, tT + 0.75);
       tl.from("#title .sub", { y: 60, opacity: 0, duration: 0.3, ease: "back.out(2)" }, tT + 1.05);
-      tl.to("#title", { opacity: 0, scale: 1.15, duration: 0.15, ease: "power2.in" }, T(16) - 0.15);
+      tl.to("#title", { opacity: 0, scale: 1.15, duration: 0.15, ease: "power2.in" }, T(SEC.hook.end) - 0.15);
 
-      // ---------- Location pin (beats 20-24) ----------
-      ft("#pin", { opacity: 0, x: -400 }, { opacity: 1, x: 0, duration: 0.35, ease: "back.out(1.8)" }, T(20));
-      ft("#pin .ico", { rotation: -25, scale: 0.6 }, { rotation: 0, scale: 1, duration: 0.5, ease: "elastic.out(1, 0.4)" }, T(20) + 0.1);
-      tl.to("#pin", { opacity: 0, x: -400, duration: 0.2, ease: "power2.in" }, T(24) - 0.2);
+      // ---------- Location pin (from "каждый день" until "заходим") ----------
+      const tPin = wordT("каждый", "arrival") - 0.1;
+      ft("#pin", { opacity: 0, x: -400 }, { opacity: 1, x: 0, duration: 0.35, ease: "back.out(1.8)" }, tPin);
+      ft("#pin .ico", { rotation: -25, scale: 0.6 }, { rotation: 0, scale: 1, duration: 0.5, ease: "elastic.out(1, 0.4)" }, tPin + 0.1);
+      tl.to("#pin", { opacity: 0, x: -400, duration: 0.2, ease: "power2.in" }, wordT("огромное", "arrival"));
 
       // ---------- Chapters ----------
       const CHAPTERS = [
-        [32, "01", "РОБОТЫ", 56],
-        [56, "02", "ЕДА", 80],
-        [80, "03", "УПАКОВКА", 96],
-        [96, "04", "ЛЮДИ", 106],
+        ["robots", "01", "РОБОТЫ"],
+        ["food", "02", "ЕДА"],
+        ["pack", "03", "УПАКОВКА"],
+        ["people", "04", "ЛЮДИ"],
       ];
       const chLayer = document.getElementById("chapters");
-      CHAPTERS.forEach(([b, num, name, until]) => {
+      CHAPTERS.forEach(([sec, num, name]) => {
         const card = document.createElement("div");
         card.className = "chapter";
         card.innerHTML = `<span class="num">${num}</span><span class="name">${name}</span>`;
@@ -516,27 +527,27 @@
         tag.className = "tag";
         tag.innerHTML = `<b>${num}</b> ${name}`;
         chLayer.appendChild(tag);
-        const t = T(b);
+        const t = T(SEC[sec].start);
         ft(card, { opacity: 0, scale: 2.2 }, { opacity: 1, scale: 1, duration: 0.25, ease: "power4.out" }, t);
         ft(card.querySelector(".num"), { rotation: -30 }, { rotation: -4, duration: 0.5, ease: "elastic.out(1, 0.5)" }, t);
         tl.to(card, { opacity: 0, y: -80, duration: 0.15, ease: "power2.in" }, t + 3 * BEAT - 0.15);
         ft(tag, { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.25, ease: "power3.out" }, t + 3 * BEAT);
-        tl.to(tag, { opacity: 0, duration: 0.12 }, T(until) - 0.12);
+        tl.to(tag, { opacity: 0, duration: 0.12 }, T(SEC[sec].end) - 0.12);
       });
 
-      // ---------- End card (beat 114 to the end) ----------
-      const tE = T(114);
+      // ---------- End card (CTA section) ----------
+      const tE = T(SEC.cta.start);
       ft("#endDim", { opacity: 0 }, { opacity: 1, duration: 0.3 }, tE);
       ft("#punch", { filter: "blur(0px)" }, { filter: "blur(6px)", duration: 0.4 }, tE);
       ft("#flash", { opacity: 0.7 }, { opacity: 0, duration: 0.3 }, tE);
       tl.set("#end", { opacity: 1 }, tE);
       tl.from("#end .logo", { y: -60, opacity: 0, duration: 0.3, ease: "back.out(2)" }, tE);
-      tl.from("#end .q", { scale: 0.5, opacity: 0, duration: 0.35, ease: "back.out(2.2)" }, tE + 0.25);
-      tl.from("#end .hint", { y: 40, opacity: 0, duration: 0.3 }, tE + 0.7);
-      tl.from("#end .btn", { y: 120, opacity: 0, duration: 0.4, ease: "back.out(2)", stagger: 0.15 }, tE + 1.0);
+      tl.from("#end .q", { scale: 0.5, opacity: 0, duration: 0.35, ease: "back.out(2.2)" }, wordT("тебя", "cta") - 0.1);
+      tl.from("#end .hint", { y: 40, opacity: 0, duration: 0.3 }, wordT("пиши", "cta") - 0.1);
+      tl.from("#end .btn", { y: 120, opacity: 0, duration: 0.4, ease: "back.out(2)", stagger: 0.15 }, wordT("пиши", "cta") + 0.3);
       // "Tap" pulses on the buttons.
-      [["#b1", 2.2], ["#b2", 3.0]].forEach(([sel, dt]) => {
-        tl.to(sel, { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1, ease: "power2.inOut" }, tE + dt);
+      [["#b1", wordT("пиши", "cta") + 1.4], ["#b2", wordT("подписывайся", "cta") + 0.2]].forEach(([sel, at]) => {
+        tl.to(sel, { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1, ease: "power2.inOut" }, at);
       });
 
       window.__timelines = window.__timelines || {};

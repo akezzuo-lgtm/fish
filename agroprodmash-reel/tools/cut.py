@@ -1,69 +1,73 @@
 """Cuts the source footage on the 128 BPM beat grid into one graded 1080x1920 base video."""
+import json
 import os
 import subprocess
 
 SRC = "../footage/agroprodmash"
 FPS = 30
-BEAT = 60 / 128
-END_PAD = 1.25  # extra seconds on the last shot so the music tail can ring out
+TL = json.load(open("assets/timeline.json"))
+BEAT = TL["beat"]
 
-# (clip, source in-point in seconds, length in beats, speed)
-EDL = [
-    # Hook: the most spectacular machines, two beats each
-    ("0977", 8.0, 2, 1.0),
-    ("0984", 15.0, 2, 1.0),
-    ("0976", 6.5, 2, 1.0),
-    ("0987", 16.5, 2, 1.0),
-    ("0994", 25.0, 2, 1.0),
-    ("0985", 22.0, 2, 1.0),
-    ("0972", 2.0, 4, 1.0),  # exhibition banner -> title
-    # Arrival
-    ("0971", 4.0, 4, 1.0),  # selfie
-    ("0972", 5.0, 2, 1.5),
-    ("0981", 0.0, 2, 1.5),
-    ("0990", 0.5, 4, 1.5),
-    ("0973", 3.0, 2, 1.0),
-    ("0974", 3.0, 2, 1.0),
-    # 01 Robots (drop)
-    ("0987", 1.0, 3, 1.0),
-    ("0984", 5.0, 4, 1.0),
-    ("0985", 6.0, 3, 1.0),
-    ("0983", 22.0, 2, 1.0),
-    ("0987", 16.0, 2, 1.0),
-    ("0985", 13.5, 2, 1.0),
-    ("0984", 33.0, 2, 1.0),
-    ("0983", 9.0, 2, 1.0),
-    ("0984", 16.0, 2, 1.0),
-    ("0985", 26.0, 2, 1.0),
-    # 02 Dough & food
-    ("0977", 3.0, 3, 1.0),
-    ("0977", 9.5, 3, 1.0),
-    ("0977", 14.0, 2, 1.0),
-    ("0994", 3.0, 2, 1.0),
-    ("0994", 12.0, 2, 1.0),
-    ("0994", 22.5, 2, 1.0),
-    ("0976", 7.0, 3, 1.0),
-    ("0976", 16.0, 3, 1.0),
-    ("0993", 15.0, 2, 1.0),
-    ("0993", 8.0, 2, 1.0),
-    # 03 Packaging
-    ("0988", 2.0, 2, 1.0),
-    ("0988", 9.0, 2, 1.0),
-    ("0988", 14.0, 2, 1.0),
-    ("0979", 15.5, 2, 1.0),
-    ("0979", 5.5, 2, 1.0),
-    ("0978", 2.0, 2, 1.0),
-    ("0986", 20.0, 2, 1.0),
-    ("0982", 15.0, 2, 1.0),
-    # Outro
-    ("0991", 17.0, 4, 1.0),
-    ("0980", 3.0, 2, 1.0),
-    ("0981", 4.0, 2, 1.0),
-    ("0975", 1.0, 2, 1.0),
-    ("0990", 12.5, 4, 1.0),
-    ("0971", 26.0, 4, 1.0),
-    ("0972", 2.5, 6, 0.6),  # end card background, slowed down
-]
+# Shots per section: (clip, source in-point s, min beats, speed, anchor word or None).
+# An anchored shot starts on the beat where that word is spoken (first match inside the section).
+SHOTS = {
+    "hook": [
+        ("0977", 8.0, 2, 1.0, None), ("0984", 15.0, 2, 1.0, None), ("0976", 6.5, 2, 1.0, None),
+        ("0987", 16.5, 2, 1.0, None), ("0994", 25.0, 2, 1.0, None), ("0985", 22.0, 2, 1.0, None),
+        ("0972", 2.0, 2, 1.0, "агропродмаш"),
+    ],
+    "arrival": [
+        ("0971", 4.0, 6, 1.0, None), ("0972", 5.0, 2, 1.5, None), ("0981", 0.0, 2, 1.5, "заходим"),
+        ("0990", 0.5, 2, 1.5, "огромное"), ("0974", 3.0, 2, 1.0, "куда"), ("0990", 7.0, 2, 1.0, None),
+        ("0983", 27.0, 2, 1.0, None),
+    ],
+    "robots": [
+        ("0984", 5.0, 3, 1.0, None), ("0985", 6.0, 3, 1.0, "бригада"), ("0985", 22.0, 2, 1.0, None),
+        ("0987", 16.0, 2, 1.0, "конфеты"), ("0985", 13.5, 4, 1.0, "человеку"), ("0984", 33.0, 2, 1.0, None),
+        ("0983", 22.0, 2, 1.0, "сбился"), ("0987", 1.0, 2, 1.0, None),
+    ],
+    "food": [
+        ("0977", 3.0, 2, 1.0, None), ("0977", 9.5, 2, 1.0, "шоколад"), ("0977", 14.0, 2, 1.0, "кондитерка"),
+        ("0994", 3.0, 2, 1.0, "полуфабрикаты"), ("0994", 22.5, 2, 1.0, None), ("0976", 7.0, 2, 1.0, "овощи"),
+        ("0976", 16.0, 2, 1.0, None), ("0993", 15.0, 2, 1.0, "мясорубки"), ("0993", 8.0, 2, 1.0, "холодильник"),
+    ],
+    "pack": [
+        ("0979", 15.5, 2, 1.0, None), ("0988", 2.0, 2, 1.0, "рулон"), ("0988", 9.0, 2, 1.0, "готовая"),
+        ("0979", 5.5, 2, 1.0, None), ("0988", 14.0, 2, 1.0, None), ("0986", 20.0, 2, 1.0, "столиками"),
+    ],
+    "people": [
+        ("0991", 17.0, 4, 1.0, None), ("0990", 12.5, 3, 1.0, "итог"), ("0987", 20.0, 2, 1.0, "роботы"),
+        ("0971", 26.0, 2, 1.0, "начало"),
+    ],
+    "cta": [("0972", 2.5, 2, 0.6, None)],
+}
+
+
+def plan():
+    """Turns the section shot lists into a flat list of (clip, in, beats, speed)."""
+    edl = []
+    for sec in TL["sections"]:
+        words = [w for w in TL["words"] if w["section"] == sec["name"]]
+        starts, shots = [], []
+        for clip, t_in, minb, speed, anchor in SHOTS[sec["name"]]:
+            if anchor:
+                t = next(w["t"] for w in words if w["w"] == anchor)
+                b = max(round(t / BEAT), starts[-1] + 1 if starts else sec["start"])
+            else:
+                b = starts[-1] + shots[-1][2] if starts else sec["start"]
+            if b >= sec["end"]:
+                continue
+            # drop unanchored shots that would collide with an anchored one
+            starts.append(b)
+            shots.append((clip, t_in, minb, speed))
+        for i, (clip, t_in, _, speed) in enumerate(shots):
+            nxt = starts[i + 1] if i + 1 < len(starts) else sec["end"]
+            if nxt > starts[i]:
+                edl.append((clip, t_in, nxt - starts[i], speed))
+    return edl
+
+
+EDL = plan()
 
 # iPhone footage is tagged HLG/BT.2020; the grade was tuned on it viewed as SDR, so retag as BT.709
 # (otherwise HyperFrames switches to an HDR render path).
@@ -77,8 +81,6 @@ parts = []
 for i, (clip, start, beats, speed) in enumerate(EDL):
     beat += beats
     end_frame = round(beat * BEAT * FPS)
-    if i == len(EDL) - 1:
-        end_frame += round(END_PAD * FPS)
     n = end_frame - frame
     frame = end_frame
     out = f"build/seg/{i:02d}.mp4"
@@ -106,4 +108,6 @@ subprocess.run(
      "-movflags", "+faststart", "assets/base.mp4"],
     check=True,
 )
-print("beats", beat, "frames", frame, "seconds", frame / FPS)
+with open("assets/shots.js", "w") as f:
+    f.write("window.SHOT_BEATS = " + json.dumps([e[2] for e in EDL]) + ";\n")
+print("shots", len(EDL), "beats", beat, "frames", frame, "seconds", frame / FPS)

@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "music": "python3 tools/make_music.py && ffmpeg -loglevel error -y -i assets/music_raw.wav -af loudnorm=I=-14:TP=-1:LRA=9 -ar 44100 assets/music.wav && rm assets/music_raw.wav",
+    "voice": "python3 tools/voice.py",
+    "music": "python3 tools/make_music.py && ffmpeg -loglevel error -y -i assets/music_raw.wav -af loudnorm=I=-14:TP=-1:LRA=9 -ar 48000 assets/music.wav && rm assets/music_raw.wav",
+    "mix": "ffmpeg -loglevel error -y -i assets/music.wav -i assets/vo.wav -filter_complex \"[1:a]asplit=2[vo][sc];[0:a]volume=0.55[m];[m][sc]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=350:makeup=1[duck];[duck][vo]amix=inputs=2:weights='1 1.35':normalize=0,alimiter=limit=0.89,loudnorm=I=-14:TP=-1:LRA=9\" -ar 48000 -ac 2 assets/mix.wav",
     "cut": "python3 tools/cut.py",
     "dev": "npx --yes hyperframes@0.8.111 preview",
     "check": "npx --yes hyperframes@0.8.111 check",
-    "render": "npx --yes hyperframes@0.8.111 render --sdr -o renders/agroprodmash-reel.mp4"
+    "render": "npx --yes hyperframes@0.8.111 render --sdr -o renders/agroprodmash-reel-vo.mp4"
   }
 }
