@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0a2540;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        background: linear-gradient(hsl(200, 80%, 45%), hsl(215, 85%, 18%));
+        overflow: hidden;
+      }
+      /* Darker gradient faded in over the whole video: "sinking deeper". */
+      #deep {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(hsl(200, 80%, 25%), hsl(215, 85%, 8%));
+        opacity: 0;
+      }
+      .bubble {
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
+      #intro {
+        flex-direction: column;
+      }
+      #title {
+        font-size: 260px;
+        font-weight: 900;
+        line-height: 1;
+      }
+      #subtitle {
+        font-size: 56px;
+        color: #bfe9ff;
+      }
+      .fish {
+        position: absolute;
+        left: 0;
+      }
+      .tail {
+        transform-origin: 150px 60px;
+      }
+      #outro {
+        gap: 40px;
+      }
+      .word {
+        font-size: 140px;
+        font-weight: 800;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="11"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div id="deep"></div>
+      <div id="bubbles"></div>
+
+      <div id="intro" class="scene clip" data-start="0" data-duration="3" data-track-index="1">
+        <div id="title">fish</div>
+        <div id="subtitle">смонтировано в HyperFrames</div>
+      </div>
+
+      <div id="school" class="scene clip" data-start="2.5" data-duration="5.5" data-track-index="2"></div>
+
+      <div id="outro" class="scene clip" data-start="8" data-duration="3" data-track-index="3">
+        <span class="word">плыви</span>
+        <span class="word">дальше</span>
+        <span class="word">🐟</span>
+      </div>
+    </div>
+
+    <script>
+      // Deterministic pseudo-random (Math.random is not allowed in compositions).
+      let seed = 42;
+      const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+
+      const W = 1920;
+      const H = 1080;
+      const tl = gsap.timeline({ paused: true });
+
+      // Background slowly gets deeper over the whole video.
+      tl.to("#deep", { opacity: 1, duration: 11, ease: "none" }, 0);
+
+      // Bubbles rising from the bottom, looping.
+      const bubbles = document.getElementById("bubbles");
+      for (let i = 0; i < 40; i++) {
+        const b = document.createElement("div");
+        const r = 4 + rand() * 14;
+        b.className = "bubble";
+        b.style.width = b.style.height = r + "px";
+        b.style.left = rand() * W + "px";
+        bubbles.appendChild(b);
+        // One linear tween over the whole video; wrap() loops the bubble back to the bottom.
+        const startY = rand() * (H + 100);
+        const speed = 60 + rand() * 120;
+        const wrapY = gsap.utils.wrap(-50, H + 50);
+        tl.fromTo(
+          b,
+          { y: startY },
+          { y: startY - speed * 11, duration: 11, ease: "none", modifiers: { y: (y) => wrapY(parseFloat(y)) + "px" } },
+          0,
+        );
+        tl.to(b, { x: 15, duration: 1, ease: "sine.inOut", yoyo: true, repeat: 11 }, 0);
+      }
+
+      // Scene 1: title pops in, subtitle slides up, scene fades out.
+      tl.from("#title", { scale: 0, duration: 0.8, ease: "back.out(2)" }, 0);
+      tl.from("#subtitle", { opacity: 0, y: 30, duration: 0.6 }, 0.8);
+      tl.to("#intro", { opacity: 0, duration: 0.5 }, 2.5);
+
+      // Scene 2: a school of fish swims right to left with wagging tails.
+      const school = document.getElementById("school");
+      const fishes = [
+        { color: "#ff8a3d", size: 320, y: 380, delay: 0, speed: 1 },
+        { color: "#ffd23f", size: 180, y: 220, delay: 0.5, speed: 1.3 },
+        { color: "#ff5d8f", size: 220, y: 650, delay: 1, speed: 1.15 },
+        { color: "#7ae582", size: 140, y: 800, delay: 1.5, speed: 1.5 },
+      ];
+      const swimStart = 2.5;
+      tl.from("#school", { opacity: 0, duration: 0.5 }, swimStart);
+      fishes.forEach((f, i) => {
+        const el = document.createElement("div");
+        el.className = "fish";
+        el.setAttribute("data-layout-allow-overflow", "");
+        el.style.top = f.y + "px";
+        el.innerHTML = `
+          <svg overflow="visible" width="${f.size}" height="${f.size * 0.6}" viewBox="0 0 200 120">
+            <polygon class="tail" points="150,60 200,20 200,100" fill="${f.color}" opacity="0.85" />
+            <ellipse cx="85" cy="60" rx="75" ry="45" fill="${f.color}" />
+            <circle cx="40" cy="48" r="9" fill="white" />
+            <circle cx="37" cy="48" r="4" fill="#0b1d2e" />
+          </svg>`;
+        school.appendChild(el);
+        tl.fromTo(
+          el,
+          { x: W + 100 },
+          { x: -f.size - 100, duration: 5 / f.speed, ease: "power1.inOut" },
+          swimStart + f.delay,
+        );
+        tl.to(el, { y: 25, duration: 1.2, ease: "sine.inOut", yoyo: true, repeat: 5 }, swimStart + i * 0.3);
+        tl.fromTo(
+          el.querySelector(".tail"),
+          { rotation: -12 },
+          { rotation: 12, duration: 0.3, ease: "sine.inOut", yoyo: true, repeat: 19 },
+          swimStart,
+        );
+      });
+
+      // Scene 3: words jump in one by one.
+      tl.from(".word", { y: 200, opacity: 0, duration: 0.7, ease: "back.out(1.6)", stagger: 0.27 }, 8);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
