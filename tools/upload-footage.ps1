@@ -7,7 +7,7 @@ $Source = Join-Path $env:USERPROFILE "Downloads\агропродмаш\агро�
 $Repo = Join-Path $env:USERPROFILE "fish"
 $RepoUrl = "https://github.com/akezzuo-lgtm/fish.git"
 $Branch = "claude/100-bucks-credits-9ya5g5"
-$BatchLimitMB = 400
+$BatchLimitMB = 90  # GitHub drops single HTTPS pushes of several hundred MB
 
 $VideoExt = ".mp4", ".mov", ".avi", ".mkv", ".m4v", ".3gp", ".mts", ".webm", ".wmv"
 $ImageExt = ".jpg", ".jpeg", ".png", ".webp", ".heic"
