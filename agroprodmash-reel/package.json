@@ -1,0 +1,12 @@
+{
+  "name": "agroprodmash-reel",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "music": "python3 tools/make_music.py && ffmpeg -loglevel error -y -i assets/music_raw.wav -af loudnorm=I=-14:TP=-1:LRA=9 -ar 44100 assets/music.wav && rm assets/music_raw.wav",
+    "cut": "python3 tools/cut.py",
+    "dev": "npx --yes hyperframes@0.8.111 preview",
+    "check": "npx --yes hyperframes@0.8.111 check",
+    "render": "npx --yes hyperframes@0.8.111 render -o renders/agroprodmash-reel.mp4"
+  }
+}
