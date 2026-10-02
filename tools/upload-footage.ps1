@@ -79,13 +79,13 @@ foreach ($f in $files) {
     if (Test-Path -LiteralPath $out) { continue }
     Write-Host "[$i/$($files.Count)] видео: $rel"
     # Long side up to 1920, H.264 — small enough for git, good enough for a 1080x1920 edit.
-    ffmpeg -hide_banner -loglevel error -y -i $f.FullName `
+    ffmpeg -nostdin -hide_banner -loglevel error -y -i $f.FullName `
       -vf "scale=1920:1920:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30" `
       -c:v libx264 -preset fast -crf 26 -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart $out
     if ($LASTEXITCODE) { Write-Host "  пропущено: ffmpeg не смог прочитать файл" -ForegroundColor Yellow; Remove-Item -LiteralPath $out -ErrorAction SilentlyContinue; continue }
     if ((Get-Item -LiteralPath $out).Length -gt 95MB) {
       Write-Host "  файл большой, пережимаю сильнее"
-      ffmpeg -hide_banner -loglevel error -y -i $f.FullName `
+      ffmpeg -nostdin -hide_banner -loglevel error -y -i $f.FullName `
         -vf "scale=1280:1280:force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30" `
         -c:v libx264 -preset fast -crf 30 -pix_fmt yuv420p -c:a aac -b:a 96k -movflags +faststart $out
     }
