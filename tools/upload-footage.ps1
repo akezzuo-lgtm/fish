@@ -1,12 +1,12 @@
 # Compresses every video from a local folder and pushes it to the fish repo,
 # so the cloud session can edit it. Run in PowerShell:
-#   irm https://raw.githubusercontent.com/akezzuo-lgtm/fish/claude/100-bucks-credits-9ya5g5/tools/upload-footage.ps1 | iex
+#   irm https://raw.githubusercontent.com/akezzuo-lgtm/fish/claude/bold-wozniak-h2dc4h/tools/upload-footage.ps1 | iex
 
 $ErrorActionPreference = "Stop"
-$Source = Join-Path $env:USERPROFILE "Downloads\агропродмаш\агропродмаш"
+$Source = (Read-Host "Вставьте полный путь к папке с видео (например C:\Users\Имя\Downloads\съёмка)").Trim('"', ' ')
 $Repo = Join-Path $env:USERPROFILE "fish"
 $RepoUrl = "https://github.com/akezzuo-lgtm/fish.git"
-$Branch = "claude/100-bucks-credits-9ya5g5"
+$Branch = "claude/bold-wozniak-h2dc4h"
 $BatchLimitMB = 90  # GitHub drops single HTTPS pushes of several hundred MB
 
 $VideoExt = ".mp4", ".mov", ".avi", ".mkv", ".m4v", ".3gp", ".mts", ".webm", ".wmv"
@@ -20,9 +20,12 @@ foreach ($tool in "git", "ffmpeg") {
   }
 }
 
-while (-not (Test-Path -LiteralPath $Source)) {
-  $Source = Read-Host "Папка не найдена. Вставьте полный путь к папке с видео"
+while (-not $Source -or -not (Test-Path -LiteralPath $Source)) {
+  $Source = (Read-Host "Папка не найдена. Вставьте полный путь к папке с видео").Trim('"', ' ')
 }
+# Subfolder name inside footage/ — defaults to the source folder's name, latin-safe.
+$Project = (Read-Host "Название проекта латиницей (Enter — имя папки)").Trim()
+if (-not $Project) { $Project = Split-Path $Source -Leaf }
 
 # Footage of real people should not sit in a public repo.
 try {
@@ -39,18 +42,20 @@ if (-not (Test-Path (Join-Path $Repo ".git"))) {
   git clone --branch $Branch $RepoUrl $Repo
   if ($LASTEXITCODE) { Fail "git clone не удался" }
 }
+git -C $Repo fetch origin $Branch
 git -C $Repo checkout $Branch
+if ($LASTEXITCODE) { Fail "git checkout не удался" }
 # --no-rebase --no-edit: merge silently if the branch moved on GitHub meanwhile (no editor, no "divergent" error)
 git -C $Repo pull --no-rebase --no-edit origin $Branch
 if ($LASTEXITCODE) { Fail "git pull не удался" }
 
-$Dest = Join-Path $Repo "footage\agroprodmash"
+$Dest = Join-Path $Repo (Join-Path "footage" $Project)
 New-Item -ItemType Directory -Force $Dest | Out-Null
 
 function Push-Batch($n) {
   git -C $Repo add footage
   git -C $Repo diff --cached --quiet
-  if ($LASTEXITCODE -ne 0) { git -C $Repo commit -m "Add Agroprodmash footage (batch $n)" }
+  if ($LASTEXITCODE -ne 0) { git -C $Repo commit -m "Add $Project footage (batch $n)" }
   # nothing new and nothing left unpushed -> done
   git -C $Repo fetch origin $Branch
   $ahead = git -C $Repo rev-list --count "origin/$Branch..HEAD"
